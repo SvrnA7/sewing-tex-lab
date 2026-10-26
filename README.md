@@ -71,5 +71,8 @@ data/     Lokale Datenbank (db.json) und Demo-Vault
 
 Die Produktionsstufen stehen in `shared/types.ts` (`STAGES`) und lassen sich dort anpassen.
 
-## Sicherheit
-Die App hat noch keine Anmeldung. Betreibe sie im lokalen Netz oder setze sie hinter einen Zugriffsschutz (z. B. Cloudflare Access oder Basic Auth am Reverse-Proxy), bevor sie öffentlich erreichbar ist. Zugangsdaten gehören nur in `.env`, nie ins Repository.
+## Hosting & Sicherheit
+Die App braucht einen laufenden Node-Server (`npm start`). Reine Static-Hoster wie Netlify liefern nur das Frontend aus, ohne Server bleiben Aufträge, Lager und der Agent leer.
+Empfohlen: auf einem Rechner in der Werkstatt laufen lassen (dort liegt auch der Obsidian-Vault) und per Cloudflare Tunnel + Cloudflare Access geschützt erreichbar machen. Schritt-für-Schritt: [docs/betrieb-cloudflare.md](docs/betrieb-cloudflare.md).
+
+Die App hat selbst keine Anmeldung, deshalb nie ohne Zugriffsschutz öffentlich betreiben. Zugangsdaten gehören nur in `.env`, nie in `.env.example` oder ins Repository.
