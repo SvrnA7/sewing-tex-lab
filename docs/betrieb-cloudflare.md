@@ -35,6 +35,8 @@ pm2 start npm --name stitchflow -- start
 pm2 save && pm2 startup   # den ausgegebenen Befehl einmal ausführen
 ```
 
+**Windows:** `pm2 startup` gibt es dort nicht. Einfacher ist die Aufgabenplanung: Neue Aufgabe → Trigger „Beim Anmelden“ → Aktion „Programm starten“ mit `cmd.exe`, Argumente `/c npm start`, „Starten in“ = der Ordner `sewing-tex-lab`.
+
 ## 2. Cloudflare Tunnel einrichten
 
 1. dash.cloudflare.com → **Zero Trust** → **Networks** → **Tunnels** → **Create a tunnel** → Typ **Cloudflared**.
