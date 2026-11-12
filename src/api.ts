@@ -1,10 +1,19 @@
 import type { Integrations, KnowledgeNote, Material, Order, Settings, Stats } from "../shared/types";
 
+/** Wird ausgelöst, wenn der Server eine Anmeldung verlangt (Sitzung abgelaufen oder noch nicht eingeloggt). */
+export const AUTH_EVENT = "stitchflow:login";
+
+export class AuthError extends Error {}
+
 async function req<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(`/api${path}`, {
     ...init,
     headers: init?.body ? { "Content-Type": "application/json", ...init.headers } : init?.headers,
   });
+  if (res.status === 401 && path !== "/login") {
+    window.dispatchEvent(new Event(AUTH_EVENT));
+    throw new AuthError("Bitte anmelden.");
+  }
   if (!res.ok) {
     const body = await res.json().catch(() => ({}));
     throw new Error(body.error ?? `Fehler ${res.status}`);
@@ -15,6 +24,8 @@ async function req<T>(path: string, init?: RequestInit): Promise<T> {
 const json = (body: unknown) => JSON.stringify(body);
 
 export const api = {
+  login: (password: string) => req<{ ok: boolean }>("/login", { method: "POST", body: json({ password }) }),
+  logout: () => req<void>("/logout", { method: "POST" }),
   orders: () => req<Order[]>("/orders"),
   createOrder: (o: Partial<Order>) => req<Order>("/orders", { method: "POST", body: json(o) }),
   updateOrder: (id: string, patch: Partial<Order>) =>
@@ -45,6 +56,7 @@ export type AgentEvent =
 /** Liest die NDJSON-Antwort des Agenten zeilenweise. */
 export async function askAgent(messages: { role: "user" | "assistant"; content: string }[], onEvent: (e: AgentEvent) => void) {
   const res = await fetch("/api/agent/chat", { method: "POST", headers: { "Content-Type": "application/json" }, body: json({ messages }) });
+  if (res.status === 401) window.dispatchEvent(new Event(AUTH_EVENT));
   if (!res.ok || !res.body) {
     const body = await res.json().catch(() => ({}));
     onEvent({ type: "error", error: body.error ?? `Fehler ${res.status}` });

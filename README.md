@@ -33,7 +33,7 @@ npm run build
 npm start                 # alles unter http://localhost:8787
 ```
 
-Daten (Produktionsstand, Lager, Einstellungen) liegen in `data/db.json`.
+Daten (Produktionsstand, Lager, Einstellungen) liegen in `data/db.json` oder, wenn `DATABASE_URL` gesetzt ist, in Postgres (z. B. Neon).
 
 ## Anbindungen
 
@@ -56,23 +56,28 @@ API-Schlüssel unter console.anthropic.com erstellen und als `ANTHROPIC_API_KEY`
 Bei jeder Frage sucht der Server die passendsten Obsidian-Notizen heraus und gibt sie zusammen mit dem aktuellen Auftrags- und Lagerstand an Claude. Die Antwort wird live gestreamt.
 
 ### Obsidian (Wissensdatenbank)
-`OBSIDIAN_VAULT_PATH` auf den Ordner deines Vaults setzen (der Server muss auf demselben Rechner laufen oder den Vault per Sync/Netzlaufwerk sehen).
+Lokal: `OBSIDIAN_VAULT_PATH` auf den Ordner deines Vaults setzen (der Server muss auf demselben Rechner laufen).
+Auf Vercel: Vault per Obsidian-Git-Plugin in ein privates GitHub-Repo synchronisieren und `OBSIDIAN_GITHUB_REPO` + `OBSIDIAN_GITHUB_TOKEN` setzen (siehe [docs/vercel.md](docs/vercel.md)).
+Ohne beides speichert die App das Wissen in ihrer eigenen Datenbank.
 Gelesen werden alle `.md`-Dateien (Ordner mit Punkt wie `.obsidian` werden ignoriert). Neue Einträge landen in `Textil-Lab/` (änderbar über `OBSIDIAN_NOTES_FOLDER`), Anhänge in `Textil-Lab/Anhänge/` und werden per `![[…]]` eingebettet.
 Frontmatter `typ:` und `tags:` werden ausgewertet.
 
 ## Aufbau
 
 ```
-server/   Express-API (Shopify-Sync, Webhooks, Lager, Kennzahlen, Obsidian, Claude-Streaming)
+api/      Einstieg für Vercel (leitet alle /api-Anfragen an server/app.ts)
+server/   Express-API (Shopify-Sync, Webhooks, Lager, Kennzahlen, Obsidian, Claude-Streaming, Login)
 shared/   Gemeinsame Typen und Produktionsstufen
 src/      React-Frontend (Ansichten in src/views, Detailansicht & Dialoge in src/components)
-data/     Lokale Datenbank (db.json) und Demo-Vault
+data/     Lokale Datenbank (db.json), wenn keine DATABASE_URL gesetzt ist
 ```
 
 Die Produktionsstufen stehen in `shared/types.ts` (`STAGES`) und lassen sich dort anpassen.
 
 ## Hosting & Sicherheit
-Die App braucht einen laufenden Node-Server (`npm start`). Reine Static-Hoster wie Netlify liefern nur das Frontend aus, ohne Server bleiben Aufträge, Lager und der Agent leer.
-Empfohlen: auf einem Rechner in der Werkstatt laufen lassen (dort liegt auch der Obsidian-Vault) und per Cloudflare Tunnel + Cloudflare Access geschützt erreichbar machen. Schritt-für-Schritt: [docs/betrieb-cloudflare.md](docs/betrieb-cloudflare.md).
+Zwei Wege, die App dauerhaft zu betreiben:
 
-Die App hat selbst keine Anmeldung, deshalb nie ohne Zugriffsschutz öffentlich betreiben. Zugangsdaten gehören nur in `.env`, nie in `.env.example` oder ins Repository.
+- **Vercel + Neon** (Cloud, am Laptop und Handy erreichbar): Daten in einer Neon-Postgres-Datenbank, Obsidian über ein GitHub-Repo, Schutz per App-Passwort. Anleitung: [docs/vercel.md](docs/vercel.md).
+- **Werkstatt-Rechner** mit Cloudflare Tunnel + Access: Daten in `data/db.json`, Obsidian-Vault direkt als Ordner. Anleitung: [docs/betrieb-cloudflare.md](docs/betrieb-cloudflare.md).
+
+Netlify liefert nur das Frontend aus und reicht deshalb nicht. Mit gesetztem `APP_PASSWORD` fragt die App beim Öffnen ein Passwort ab; auf Vercel ist das Pflicht. Zugangsdaten gehören nur in `.env` bzw. die Vercel-Umgebungsvariablen, nie in `.env.example` oder ins Repository.

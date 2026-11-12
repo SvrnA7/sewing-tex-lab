@@ -101,5 +101,7 @@ export interface KnowledgeNote {
 export interface Integrations {
   shopify: { connected: boolean; shop?: string; lastSync?: string; error?: string; demo: boolean };
   claude: { connected: boolean; model: string };
-  obsidian: { connected: boolean; vault?: string; notes: number; demo: boolean };
+  obsidian: { connected: boolean; vault?: string; notes: number; demo: boolean; source: "github" | "ordner" | "app" };
+  storage: { kind: "postgres" | "datei"; persistent: boolean };
+  auth: { enabled: boolean; hosted: boolean };
 }

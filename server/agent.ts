@@ -1,8 +1,8 @@
 import Anthropic from "@anthropic-ai/sdk";
 import type { Response } from "express";
-import { STAGES, statusGroup, stockTone } from "../shared/types";
-import { searchNotes } from "./obsidian";
-import { getDb } from "./store";
+import { STAGES, statusGroup, stockTone } from "../shared/types.js";
+import { searchNotes } from "./obsidian.js";
+import { getStore } from "./store.js";
 
 export const claudeConfigured = () => Boolean(process.env.ANTHROPIC_API_KEY?.trim());
 export const claudeModel = () => process.env.CLAUDE_MODEL || "claude-opus-5-5";
@@ -19,8 +19,9 @@ Deine Quellen:
 
 Wenn etwas in den Daten fehlt, sag das offen, statt Werte zu erfinden. Halte Antworten kurz; nutze Listen für Einstellungen und Arbeitsschritte. Wenn eine Erkenntnis es wert ist, festgehalten zu werden, schlage am Ende einen kurzen Titel für eine neue Obsidian-Notiz vor.`;
 
-function workshopSnapshot(): string {
-  const db = getDb();
+async function workshopSnapshot(): Promise<string> {
+  const store = await getStore();
+  const db = { orders: await store.listOrders(), materials: await store.listMaterials(), settings: await store.getSettings() };
   const now = new Date();
   const active = db.orders.filter((o) => o.stage !== "Fertig");
   const lines = active
@@ -57,7 +58,7 @@ export async function streamAgentReply(history: ChatTurn[], res: Response) {
   const send = (obj: unknown) => res.write(JSON.stringify(obj) + "\n");
 
   const question = history[history.length - 1]?.content ?? "";
-  const notes = searchNotes(history.filter((t) => t.role === "user").slice(-2).map((t) => t.content).join(" "), 5);
+  const notes = await searchNotes(history.filter((t) => t.role === "user").slice(-2).map((t) => t.content).join(" "), 5);
   send({ type: "sources", sources: notes.map(({ body: _b, ...n }) => n) });
 
   if (!claudeConfigured()) {
@@ -71,7 +72,7 @@ export async function streamAgentReply(history: ChatTurn[], res: Response) {
 
   const context = `<wissensbasis>\n${
     notes.map((n) => `<notiz titel="${n.title}" pfad="${n.path}">\n${n.body}\n</notiz>`).join("\n") || "Keine passenden Notizen gefunden."
-  }\n</wissensbasis>\n\n<werkstatt>\n${workshopSnapshot()}\n</werkstatt>`;
+  }\n</wissensbasis>\n\n<werkstatt>\n${await workshopSnapshot()}\n</werkstatt>`;
 
   const messages: Anthropic.Beta.BetaMessageParam[] = history.slice(0, -1).map((t) => ({ role: t.role, content: t.content }));
   messages.push({

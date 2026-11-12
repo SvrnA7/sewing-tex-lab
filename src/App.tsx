@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { Integrations, KnowledgeNote, Material, Order, Settings, Stage, Stats } from "../shared/types";
-import { api } from "./api";
+import { api, AuthError, AUTH_EVENT } from "./api";
 import { Button, Icon, type IconName } from "./ui";
 import { KnowledgeModal } from "./components/KnowledgeModal";
+import { Login } from "./components/Login";
 import { OrderDrawer } from "./components/OrderDrawer";
 import { Overview } from "./views/Overview";
 import { OrdersView } from "./views/OrdersView";
@@ -57,6 +58,7 @@ export default function App() {
   const [knowledgePreset, setKnowledgePreset] = useState<{ title?: string; content?: string } | null>(null);
   const [pendingQuestion, setPendingQuestion] = useState<string | null>(null);
   const [toastMsg, setToastMsg] = useState<string | null>(null);
+  const [needsLogin, setNeedsLogin] = useState(false);
 
   const toast = useCallback((msg: string) => {
     setToastMsg(msg);
@@ -70,15 +72,28 @@ export default function App() {
       ]);
       setOrders(o); setStats(s); setMaterials(m); setNotes(k.notes); setNotesTotal(k.total); setSettings(st); setIntegrations(i);
     } catch (err) {
-      toast(`Server nicht erreichbar: ${(err as Error).message}`);
+      if (!(err instanceof AuthError)) toast(`Server nicht erreichbar: ${(err as Error).message}`);
     }
   }, [toast]);
 
   useEffect(() => {
+    const onAuth = () => setNeedsLogin(true);
+    window.addEventListener(AUTH_EVENT, onAuth);
+    return () => window.removeEventListener(AUTH_EVENT, onAuth);
+  }, []);
+
+  useEffect(() => {
+    if (needsLogin) return;
     refresh();
     const t = window.setInterval(refresh, 60_000);
-    return () => window.clearInterval(t);
-  }, [refresh]);
+    // Beim Zurückkehren in die App (z. B. Handy entsperrt) sofort aktualisieren
+    const onVisible = () => document.visibilityState === "visible" && refresh();
+    document.addEventListener("visibilitychange", onVisible);
+    return () => {
+      window.clearInterval(t);
+      document.removeEventListener("visibilitychange", onVisible);
+    };
+  }, [refresh, needsLogin]);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -134,7 +149,21 @@ export default function App() {
   const openCount = useMemo(() => orders.filter((o) => o.stage !== "Fertig").length, [orders]);
   const shopify = integrations?.shopify;
   const shopifyLabel = !shopify ? "…" : shopify.demo ? "Demo-Daten" : shopify.error ? "Sync-Fehler" : "Shop synchronisiert";
-  const labLabel = !integrations ? "…" : `${integrations.claude.connected ? "Claude" : "Claude offline"} + ${integrations.obsidian.demo ? "Demo-Vault" : "Obsidian"}`;
+  const labLabel = !integrations ? "…" : `${integrations.claude.connected ? "Claude" : "Claude offline"} + ${integrations.obsidian.demo ? "App-Wissen" : "Obsidian"}`;
+  const warning = !integrations?.auth.hosted
+    ? null
+    : !integrations.storage.persistent
+      ? "Keine Datenbank verbunden: Änderungen gehen bei der nächsten Bereitstellung verloren. Verbinde Neon in Vercel (DATABASE_URL)."
+      : !integrations.auth.enabled
+        ? "Die App ist ohne Passwort öffentlich erreichbar. Setze APP_PASSWORD in den Vercel-Umgebungsvariablen."
+        : null;
+
+  if (needsLogin) return <Login onLoggedIn={() => { setNeedsLogin(false); }} />;
+
+  async function logout() {
+    await api.logout().catch(() => {});
+    setNeedsLogin(true);
+  }
 
   return (
     <div className="app-shell">
@@ -172,6 +201,9 @@ export default function App() {
             <div><small>Textil-Lab {integrations?.claude.connected ? "aktiv" : "eingeschränkt"}</small><strong>{labLabel}</strong></div>
             <span className={`status-dot ${integrations && !integrations.claude.connected ? "off" : ""}`}></span>
           </div>
+          {integrations?.auth.enabled && (
+            <Button className="logout-button" onClick={logout}>Abmelden</Button>
+          )}
         </div>
       </aside>
 
@@ -184,21 +216,22 @@ export default function App() {
               aria-label="Aufträge durchsuchen"
               onChange={(e) => setQuery(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && view !== "Aufträge" && view !== "Übersicht" && setView("Aufträge")}
-              placeholder="Aufträge, Kunden oder Artikel suchen …"
+              placeholder="Aufträge, Kunden, Artikel …"
               value={query}
             />
             <kbd>⌘ K</kbd>
           </div>
           <div className="topbar-actions">
-            <Button className={`sync-button ${syncing ? "syncing" : ""}`} onClick={syncShopify} disabled={syncing}>
-              <Icon name="sync" size={16} /> {syncing ? "Synchronisiere …" : "Shopify Sync"}
+            <Button className={`sync-button ${syncing ? "syncing" : ""}`} onClick={syncShopify} disabled={syncing} aria-label="Shopify synchronisieren">
+              <Icon name="sync" size={16} /> <span>{syncing ? "Synchronisiere …" : "Shopify Sync"}</span>
             </Button>
-            <Button className="primary-button" onClick={() => setKnowledgePreset({})}>
-              <Icon name="plus" size={17} /> Wissen ergänzen
+            <Button className="primary-button" onClick={() => setKnowledgePreset({})} aria-label="Wissen ergänzen">
+              <Icon name="plus" size={17} /> <span>Wissen ergänzen</span>
             </Button>
           </div>
         </header>
 
+        {warning && <div className="setup-warning"><Icon name="alert" size={16} /> {warning}</div>}
         <div className="page">
           {view === "Übersicht" && <Overview ctx={ctx} />}
           {view === "Aufträge" && <OrdersView ctx={ctx} />}
@@ -224,12 +257,13 @@ export default function App() {
       {knowledgePreset && (
         <KnowledgeModal
           preset={knowledgePreset}
+          maxMb={integrations?.auth.hosted ? 3 : 20}
           onClose={() => setKnowledgePreset(null)}
           onSaved={(note) => {
             setNotes((n) => [note, ...n]);
             setNotesTotal((t) => t + 1);
             setKnowledgePreset(null);
-            toast(`„${note.title}“ in Obsidian gespeichert.`);
+            toast(`„${note.title}“ ${integrations?.obsidian.demo ? "in der Wissensbasis" : "in Obsidian"} gespeichert.`);
           }}
           toast={toast}
         />

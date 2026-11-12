@@ -119,7 +119,7 @@ export function LabView({ ctx }: { ctx: AppCtx }) {
         </div>
         <div className="lab-status">
           <span className={`live-pill ${integ?.claude.connected ? "" : "off"}`}><i></i> {integ?.claude.connected ? integ.claude.model : "Claude nicht verbunden"}</span>
-          <span className={`live-pill ${integ?.obsidian.demo ? "off" : ""}`}><i></i> {integ?.obsidian.demo ? "Demo-Vault" : "Obsidian-Vault"} · {ctx.notesTotal} Notizen</span>
+          <span className={`live-pill ${integ?.obsidian.demo ? "off" : ""}`}><i></i> {!integ ? "…" : integ.obsidian.source === "github" ? "Obsidian über GitHub" : integ.obsidian.source === "ordner" ? "Obsidian-Vault" : "Wissensbasis in der App"} · {ctx.notesTotal} Notizen</span>
         </div>
       </section>
 

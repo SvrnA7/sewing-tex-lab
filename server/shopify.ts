@@ -1,6 +1,6 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
-import { STAGES, type Order, type Stage } from "../shared/types";
-import { dropDemoOrders, getDb, saveDb } from "./store";
+import { STAGES, type Order, type Stage } from "../shared/types.js";
+import { dropDemoOrders, getStore } from "./store.js";
 
 const domain = () => process.env.SHOPIFY_STORE_DOMAIN?.trim();
 const token = () => process.env.SHOPIFY_ADMIN_TOKEN?.trim();
@@ -10,8 +10,9 @@ const STAGE_TAG_PREFIX = "naehstatus:";
 
 export const shopifyConfigured = () => Boolean(domain() && token());
 
-let lastError: string | undefined;
-export const shopifyLastError = () => lastError;
+/** Letzter Sync-Fehler; liegt im Speicher, weil auf Vercel jede Anfrage in einer anderen Instanz landen kann. */
+export const shopifyLastError = async () => (await (await getStore()).getMeta("shopifyError")) || undefined;
+const setLastError = async (msg: string) => (await getStore()).setMeta("shopifyError", msg);
 
 async function gql<T>(query: string, variables: Record<string, unknown> = {}): Promise<T> {
   const res = await fetch(`https://${domain()}/admin/api/${apiVersion()}/graphql.json`, {
@@ -114,7 +115,7 @@ function toOrder(node: ShopifyOrderNode, existing?: Order): Order {
 /** Holt Bestellungen der letzten `days` Tage aus Shopify und führt sie mit dem lokalen Stand zusammen. */
 export async function syncShopifyOrders(days = 120): Promise<{ imported: number; updated: number }> {
   if (!shopifyConfigured()) throw new Error("Shopify ist nicht konfiguriert (SHOPIFY_STORE_DOMAIN / SHOPIFY_ADMIN_TOKEN).");
-  const db = getDb();
+  const store = await getStore();
   const since = new Date();
   since.setDate(since.getDate() - days);
   const query = `created_at:>=${since.toISOString().slice(0, 10)} -status:cancelled`;
@@ -129,28 +130,26 @@ export async function syncShopifyOrders(days = 120): Promise<{ imported: number;
       if (!data.orders.pageInfo.hasNextPage) break;
       after = data.orders.pageInfo.endCursor;
     }
-    lastError = undefined;
+    await setLastError("");
   } catch (err) {
-    lastError = (err as Error).message;
+    await setLastError((err as Error).message);
     throw err;
   }
 
-  dropDemoOrders();
+  await dropDemoOrders(store);
+  const existing = new Map((await store.listOrders()).map((o) => [o.id, o]));
   let imported = 0;
   let updated = 0;
+  const changed: Order[] = [];
   for (const node of nodes) {
     if (node.cancelledAt) continue;
-    const idx = db.orders.findIndex((o) => o.id === node.id);
-    if (idx === -1) {
-      db.orders.push(toOrder(node));
-      imported++;
-    } else {
-      db.orders[idx] = toOrder(node, db.orders[idx]);
-      updated++;
-    }
+    const prev = existing.get(node.id);
+    changed.push(toOrder(node, prev));
+    if (prev) updated++;
+    else imported++;
   }
-  db.lastShopifySync = new Date().toISOString();
-  saveDb();
+  await store.putOrders(changed);
+  await store.setMeta("lastShopifySync", new Date().toISOString());
   return { imported, updated };
 }
 
@@ -179,8 +178,8 @@ export function verifyWebhook(rawBody: Buffer, hmacHeader: string | undefined): 
 }
 
 /** Webhook-Payload (REST-Format) → Order. Wird bei orders/create und orders/updated genutzt. */
-export function upsertFromWebhook(payload: any) {
-  const db = getDb();
+export async function upsertFromWebhook(payload: any) {
+  const store = await getStore();
   const id = payload.admin_graphql_api_id as string;
   const node: ShopifyOrderNode = {
     id,
@@ -196,14 +195,7 @@ export function upsertFromWebhook(payload: any) {
     customAttributes: (payload.note_attributes ?? []).map((a: any) => ({ key: a.name, value: a.value })),
     lineItems: { nodes: (payload.line_items ?? []).map((li: any) => ({ title: li.title, variantTitle: li.variant_title, quantity: li.quantity })) },
   };
-  dropDemoOrders();
-  const idx = db.orders.findIndex((o) => o.id === id);
-  if (node.cancelledAt) {
-    if (idx !== -1) db.orders.splice(idx, 1);
-  } else if (idx === -1) {
-    db.orders.push(toOrder(node));
-  } else {
-    db.orders[idx] = toOrder(node, db.orders[idx]);
-  }
-  saveDb();
+  await dropDemoOrders(store);
+  if (node.cancelledAt) await store.deleteOrders([id]);
+  else await store.putOrders([toOrder(node, await store.getOrder(id))]);
 }
