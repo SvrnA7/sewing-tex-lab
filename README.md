@@ -11,8 +11,10 @@ Das UI basiert auf deinem Figma-Make-Entwurf „Sewing Project management tool�
 | **Aufträge** | Filter Alle / Offen / In Bearbeitung / Abgeschlossen / Überfällig, Suche (⌘K), Sortierung, Detailansicht mit Produktionsstand, Fälligkeit, Priorität, Notiz und Verlauf; manuelle Aufträge anlegen |
 | **Produktion** | Kanban-Board mit den Stationen Offen → Zuschnitt → In Näharbeit → Bedruckt → Verpackt → Fertig (Drag & Drop oder Pfeil) |
 | **Tagesziel** | Fertige Teile heute vs. Ziel (einstellbar), letzte 7 Tage, heute fällige Aufträge, Umsatz der letzten 6 Monate |
-| **Lager** | Stoffe/Material mit Bestand, Mindestbestand, Preis, Lieferant; Verbrauch/Zugang buchen; Ampel (ausreichend / knapp / nachbestellen) |
+| **Lager** | Stoffe/Material mit Bestand, Mindestbestand, Preis, Lieferant; Verbrauch/Zugang buchen; Ampel (ausreichend / knapp / nachbestellen); **QR-Etiketten** pro Stoff (A4-Bogen 70 × 37 mm oder Etikettendrucker 62 × 40 mm) und **Scanner** mit der Handy-Kamera: Stoff öffnet sich sofort zum Zu-/Abbuchen oder Inventur-Zählen, mit Notiz und Bewegungsverlauf; unbekannte Codes (auch Lieferanten-Barcodes) legen einen neuen Stoff an |
 | **Textil-Lab** | Chat mit Claude, der deine Obsidian-Notizen durchsucht und den aktuellen Auftrags- und Lagerstand kennt; Quellen anklickbar; Antworten als neue Obsidian-Notiz speichern; Wissen inkl. Bild/PDF ergänzen |
+
+Die QR-Codes enthalten einen Link (`https://deine-app/?stoff=STF-XXXX`). Darum funktioniert auch die normale Kamera-App des Handys: Etikett scannen, Link antippen, der Stoff ist offen. Die Kamera im Browser braucht https (auf Vercel automatisch).
 
 Ohne Zugangsdaten läuft die App im **Demo-Modus** (Beispielaufträge, Demo-Vault), damit du sie sofort ansehen kannst.
 

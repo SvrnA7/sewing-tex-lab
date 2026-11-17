@@ -1,7 +1,7 @@
 import "dotenv/config";
 import express from "express";
 import { randomUUID } from "node:crypto";
-import { STAGES, statusGroup, stockTone, type Integrations, type Material, type Order, type Stage, type Stats } from "../shared/types.js";
+import { materialCode, STAGES, statusGroup, stockTone, type Integrations, type Material, type StockMove, type Order, type Stage, type Stats } from "../shared/types.js";
 import { claudeConfigured, claudeModel, streamAgentReply, type ChatTurn } from "./agent.js";
 import { authEnabled, login, logout, requireLogin } from "./auth.js";
 import { addNote, listNotes, obsidianConfigured, readNote, searchNotes, vaultLabel, vaultSource } from "./obsidian.js";
@@ -224,11 +224,50 @@ app.get("/api/integrations", h(async (_req, res) => {
 }));
 
 // ── Textillager ────────────────────────────────────────
-app.get("/api/materials", h(async (_req, res) => res.json(await (await getStore()).listMaterials())));
+
+const HISTORY_MAX = 30;
+
+function pushMove(m: Material, move: Omit<StockMove, "at" | "amount">) {
+  m.history = [{ at: new Date().toISOString(), amount: m.amount, ...move }, ...(m.history ?? [])].slice(0, HISTORY_MAX);
+}
+
+const cleanCode = (v: unknown) => String(v ?? "").trim().slice(0, 120);
+
+/** Kurzer, gut lesbarer Etiketten-Code wie STF-7K2Q (ohne 0/O/1/I) */
+function newCode(taken: Set<string>): string {
+  const abc = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+  for (;;) {
+    let c = "STF-";
+    for (let i = 0; i < 4; i++) c += abc[Math.floor(Math.random() * abc.length)];
+    if (!taken.has(c.toLowerCase())) return c;
+  }
+}
+
+async function codeTaken(code: string, exceptId?: string) {
+  const c = code.toLowerCase();
+  return (await (await getStore()).listMaterials()).some((m) => m.id !== exceptId && (materialCode(m).toLowerCase() === c || m.id.toLowerCase() === c));
+}
+
+app.get("/api/materials", h(async (_req, res) => {
+  const store = await getStore();
+  const list = await store.listMaterials();
+  // Ältere Stoffe ohne Etiketten-Code bekommen einmalig einen
+  const taken = new Set(list.map((m) => materialCode(m).toLowerCase()));
+  for (const m of list.filter((x) => !x.code)) {
+    m.code = newCode(taken);
+    taken.add(m.code.toLowerCase());
+    await store.putMaterial(m);
+  }
+  res.json(list);
+}));
 
 app.post("/api/materials", h(async (req, res) => {
   const b = req.body as Partial<Material>;
   if (!b.name) return res.status(400).json({ error: "Name fehlt" });
+  const all = await (await getStore()).listMaterials();
+  let code = cleanCode(b.code);
+  if (code && (await codeTaken(code))) return res.status(409).json({ error: `Code ${code} ist schon vergeben` });
+  if (!code) code = newCode(new Set(all.map((m) => materialCode(m).toLowerCase())));
   const m: Material = {
     id: randomUUID(),
     name: b.name,
@@ -240,7 +279,10 @@ app.post("/api/materials", h(async (req, res) => {
     supplier: b.supplier ?? "",
     pricePerUnit: Number(b.pricePerUnit) || 0,
     updatedAt: new Date().toISOString(),
+    code,
+    history: [],
   };
+  pushMove(m, { delta: m.amount, kind: "anlage" });
   await (await getStore()).putMaterial(m);
   res.status(201).json(m);
 }));
@@ -249,10 +291,23 @@ app.patch("/api/materials/:id", h(async (req, res) => {
   const store = await getStore();
   const m = await store.getMaterial(req.params.id);
   if (!m) return res.status(404).end();
-  const b = req.body as Partial<Material> & { adjust?: number };
-  if (typeof b.adjust === "number") m.amount = Math.max(0, Math.round((m.amount + b.adjust) * 100) / 100);
+  const b = req.body as Partial<Material> & { adjust?: number; note?: string };
+  const note = b.note ? String(b.note).slice(0, 200) : undefined;
+  const code = cleanCode(b.code);
+  if (code && code !== m.code) {
+    if (await codeTaken(code, m.id)) return res.status(409).json({ error: `Code ${code} ist schon vergeben` });
+    m.code = code;
+  }
+  const before = m.amount;
+  if (typeof b.adjust === "number" && b.adjust !== 0) {
+    m.amount = Math.max(0, Math.round((m.amount + b.adjust) * 100) / 100);
+    pushMove(m, { delta: Math.round((m.amount - before) * 100) / 100, kind: b.adjust > 0 ? "zugang" : "verbrauch", note });
+  }
   for (const k of ["name", "detail", "unit", "supplier"] as const) if (b[k] !== undefined) m[k] = String(b[k]);
   for (const k of ["amount", "minAmount", "capacity", "pricePerUnit"] as const) if (b[k] !== undefined) m[k] = Number(b[k]) || 0;
+  if (b.amount !== undefined && m.amount !== before && typeof b.adjust !== "number") {
+    pushMove(m, { delta: Math.round((m.amount - before) * 100) / 100, kind: "inventur", note });
+  }
   m.updatedAt = new Date().toISOString();
   await store.putMaterial(m);
   res.json(m);

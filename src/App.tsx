@@ -44,7 +44,7 @@ const NAV: [View, IconName][] = [
 ];
 
 export default function App() {
-  const [view, setView] = useState<View>("Übersicht");
+  const [view, setView] = useState<View>(() => (new URLSearchParams(window.location.search).has("stoff") ? "Lager" : "Übersicht"));
   const [query, setQuery] = useState("");
   const [orders, setOrders] = useState<Order[]>([]);
   const [stats, setStats] = useState<Stats | null>(null);

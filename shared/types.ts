@@ -57,6 +57,39 @@ export interface Material {
   supplier: string;
   pricePerUnit: number;
   updatedAt: string;
+  /** Code auf dem QR-Etikett (oder Barcode des Lieferanten), eindeutig */
+  code?: string;
+  /** Letzte Lagerbewegungen, neueste zuerst */
+  history?: StockMove[];
+}
+
+export interface StockMove {
+  at: string;
+  /** Veränderung (+ Zugang, − Verbrauch) */
+  delta: number;
+  /** Bestand danach */
+  amount: number;
+  kind: "zugang" | "verbrauch" | "inventur" | "anlage";
+  note?: string;
+}
+
+/** Code, der auf dem Etikett steht und im QR-Code steckt */
+export const materialCode = (m: Pick<Material, "id" | "code">) => m.code || m.id;
+
+/** Liest aus einem gescannten Text den Stoff-Code: App-Link (?stoff=…) oder roher Code/Barcode */
+export function parseScan(raw: string): string {
+  const text = raw.trim();
+  try {
+    const url = new URL(text);
+    const c = url.searchParams.get("stoff");
+    if (c) return c.trim();
+  } catch { /* kein Link */ }
+  return text;
+}
+
+export function findByCode(list: Material[], code: string): Material | undefined {
+  const c = code.trim().toLowerCase();
+  return list.find((m) => materialCode(m).toLowerCase() === c || m.id.toLowerCase() === c);
 }
 
 export function stockTone(m: Material): StockTone {
