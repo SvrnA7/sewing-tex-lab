@@ -4,7 +4,7 @@ import { STAGES, type Order, type Stage } from "../shared/types";
 export type IconName =
   | "alert" | "arrow" | "book" | "box" | "cart" | "check" | "chevron" | "clock" | "close" | "dashboard"
   | "file" | "image" | "package" | "plus" | "revenue" | "search" | "shirt" | "sparkles" | "sync" | "target"
-  | "upload" | "minus" | "trash" | "edit" | "flag" | "kanban";
+  | "upload" | "minus" | "trash" | "edit" | "flag" | "kanban" | "qr" | "scan" | "printer";
 
 const iconPaths: Record<IconName, ReactNode> = {
   alert: <><path d="M12 3 2.8 20h18.4z" /><path d="M12 9v4M12 17h.01" /></>,
@@ -32,6 +32,9 @@ const iconPaths: Record<IconName, ReactNode> = {
   trash: <><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13" /></>,
   edit: <><path d="M4 20h4L19 9l-4-4L4 16z" /><path d="m13 7 4 4" /></>,
   flag: <><path d="M5 21V4M5 4h11l-2 4 2 4H5" /></>,
+  qr: <><rect x="3" y="3" width="7" height="7" rx="1" /><rect x="14" y="3" width="7" height="7" rx="1" /><rect x="3" y="14" width="7" height="7" rx="1" /><path d="M14 14h3v3h-3zM20 14v.01M14 20h.01M17 20h4v-3" /></>,
+  scan: <><path d="M3 8V5a2 2 0 0 1 2-2h3M16 3h3a2 2 0 0 1 2 2v3M21 16v3a2 2 0 0 1-2 2h-3M8 21H5a2 2 0 0 1-2-2v-3" /><path d="M7 12h10" /></>,
+  printer: <><path d="M7 9V3h10v6" /><rect x="3" y="9" width="18" height="8" rx="2" /><path d="M7 14h10v7H7z" /></>,
   kanban: <><rect x="3" y="4" width="5" height="16" rx="1" /><rect x="10" y="4" width="5" height="10" rx="1" /><rect x="17" y="4" width="4" height="13" rx="1" /></>,
 };
 

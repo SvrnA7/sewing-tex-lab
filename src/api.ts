@@ -38,7 +38,7 @@ export const api = {
   integrations: () => req<Integrations>("/integrations"),
   materials: () => req<Material[]>("/materials"),
   createMaterial: (m: Partial<Material>) => req<Material>("/materials", { method: "POST", body: json(m) }),
-  updateMaterial: (id: string, patch: Partial<Material> & { adjust?: number }) =>
+  updateMaterial: (id: string, patch: Partial<Material> & { adjust?: number; note?: string }) =>
     req<Material>(`/materials/${id}`, { method: "PATCH", body: json(patch) }),
   deleteMaterial: (id: string) => req<void>(`/materials/${id}`, { method: "DELETE" }),
   knowledge: (q = "") => req<{ notes: KnowledgeNote[]; total: number }>(`/knowledge${q ? `?q=${encodeURIComponent(q)}` : ""}`),

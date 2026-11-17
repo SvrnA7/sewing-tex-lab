@@ -129,11 +129,11 @@ function demoOrders(): Order[] {
 function demoMaterials(): Material[] {
   const now = new Date().toISOString();
   return [
-    { id: "m1", name: "Heavy Jersey · Offwhite", detail: "220 g/m² · Rollenware", unit: "m", amount: 18.4, minAmount: 8, capacity: 25, supplier: "Stoffkontor Hamburg", pricePerUnit: 9.8, updatedAt: now },
-    { id: "m2", name: "French Terry · Navy", detail: "320 g/m² · Rollenware", unit: "m", amount: 6.2, minAmount: 8, capacity: 22, supplier: "Stoffkontor Hamburg", pricePerUnit: 13.5, updatedAt: now },
-    { id: "m3", name: "Bio Canvas · Natur", detail: "450 g/m² · Rollenware", unit: "m", amount: 3.8, minAmount: 8, capacity: 24, supplier: "Organic Textiles GmbH", pricePerUnit: 11.2, updatedAt: now },
-    { id: "m4", name: "Bündchenware · Schwarz", detail: "Rippstrick · Schlauch", unit: "m", amount: 9.5, minAmount: 3, capacity: 12, supplier: "Stoffkontor Hamburg", pricePerUnit: 7.4, updatedAt: now },
-    { id: "m5", name: "Nähgarn Polyester · Navy", detail: "5.000 m Kone", unit: "Kone", amount: 4, minAmount: 2, capacity: 8, supplier: "Amann", pricePerUnit: 6.9, updatedAt: now },
+    { id: "m1", code: "STF-J3RS", name: "Heavy Jersey · Offwhite", detail: "220 g/m² · Rollenware", unit: "m", amount: 18.4, minAmount: 8, capacity: 25, supplier: "Stoffkontor Hamburg", pricePerUnit: 9.8, updatedAt: now },
+    { id: "m2", code: "STF-FT8N", name: "French Terry · Navy", detail: "320 g/m² · Rollenware", unit: "m", amount: 6.2, minAmount: 8, capacity: 22, supplier: "Stoffkontor Hamburg", pricePerUnit: 13.5, updatedAt: now },
+    { id: "m3", code: "STF-CV4B", name: "Bio Canvas · Natur", detail: "450 g/m² · Rollenware", unit: "m", amount: 3.8, minAmount: 8, capacity: 24, supplier: "Organic Textiles GmbH", pricePerUnit: 11.2, updatedAt: now },
+    { id: "m4", code: "STF-BW5K", name: "Bündchenware · Schwarz", detail: "Rippstrick · Schlauch", unit: "m", amount: 9.5, minAmount: 3, capacity: 12, supplier: "Stoffkontor Hamburg", pricePerUnit: 7.4, updatedAt: now },
+    { id: "m5", code: "STF-GN2Y", name: "Nähgarn Polyester · Navy", detail: "5.000 m Kone", unit: "Kone", amount: 4, minAmount: 2, capacity: 8, supplier: "Amann", pricePerUnit: 6.9, updatedAt: now },
   ];
 }
 
